@@ -1,0 +1,7 @@
+name: Publish Document
+account: rpubs
+server: rpubs.com
+appId: https://api.rpubs.com/api/v1/document/216701/3950579a71f24b1fb54161280be0f2e7
+bundleId: https://api.rpubs.com/api/v1/document/216701/3950579a71f24b1fb54161280be0f2e7
+url: http://rpubs.com/rorymurphyza/216701
+when: 1476005462.41092

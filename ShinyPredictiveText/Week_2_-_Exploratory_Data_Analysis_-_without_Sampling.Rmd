@@ -1,0 +1,183 @@
+---
+title: "Exploratory Data Analysis"
+author: "Rory Murphy"
+date: "4 September 2016"
+output: html_document
+---
+
+The Data Science capstone project offered by Coursera and Johns Hopkins University challenges the student to create a prediction algorithm similar to an "autocorrect" function. This document describes the Exploratory Data Analysis for the given corpus and lays the groundwork for the model to be built. This report is aimed at a non-technical audience and thus the amount of code is kept to a minimum
+
+##Acquiring The Data
+The corpus to be used is downloaded from HC Corpora (http://www.corpora.heliohost.org/aboutcorpus.html). The English corpora for blogs, news items and Twitter feeds are used.
+```{r set_wd, echo = FALSE, error = TRUE, warning = FALSE, message = FALSE, tidy = TRUE, cache = TRUE}
+fileDirectory = "Data/final/en_US/en_US."
+source('~/RWorkspace/Capstone Project/parallelisTasks.R')
+```
+```{r read_files, echo = FALSE, error = TRUE, warning = FALSE, message = FALSE, tidy = TRUE, cache = TRUE}
+blogsFile = file(paste(fileDirectory, "blogs.txt", sep = ""), "rb")
+blogs = readLines(blogsFile)
+twitterFile = file(paste(fileDirectory, "twitter.txt", sep = ""), "rb")
+twitter = readLines(twitterFile)
+newsFile = file(paste(fileDirectory, "news.txt", sep =""), "rb")
+news = readLines(newsFile)
+rm(fileDirectory, blogsFile, twitterFile, newsFile)
+```
+
+###Dataset Characteristics
+
+We can first have a look at some statistics for the data sets in order to try understand their size and characteristics.
+
+```{r statistics_table, echo = FALSE, error = TRUE, warning = FALSE, message = FALSE, tidy = TRUE, cache = TRUE}
+library(stringi)
+statsTable = data.frame(FileName = character(), NumOfLines = numeric(), NumOfWords = numeric(), NumOfWordsUnique = numeric())
+temp = as.character(blogs)
+words = stri_flatten(temp, collapse = " ")
+words = unlist(stri_extract_all_words(words, locale = "en"))
+statsTable = rbind(statsTable, data.frame(FileName = "en_US.blogs.txt", NumOfLines = length(temp), NumOfWords = length(words), NumOfWordsUnique = length(unique(words))))
+
+temp = as.character(news)
+words = stri_flatten(temp, collapse = " ")
+words = unlist(stri_extract_all_words(words, locale = "en"))
+statsTable = rbind(statsTable, data.frame(FileName = "en_US.news.txt", NumOfLines = length(temp), NumOfWords = length(words), NumOfWordsUnique = length(unique(words))))
+
+temp = as.character(twitter)
+words = stri_flatten(temp, collapse = " ")
+words = unlist(stri_extract_all_words(words, locale = "en"))
+statsTable = rbind(statsTable, data.frame(FileName = "en_US.twitter.txt", NumOfLines = length(temp), NumOfWords = length(words), NumOfWordsUnique = length(unique(words))))
+rm(temp, words); statsTable
+```
+
+As can be seen from the table here, there are fairly comparable numbers of words and unique words in each corpus.
+
+##Data Cleaning
+###Profanity Filtering
+As with any selection of words, there will be undesirable ones listed in our corpus here. Profanity filtering is easily done with the help of the profanity list hosted at http://www.bannedwordlist.com. The method used in this analysis is fairly crude as the profanity is simply removed, which can have an effect on sentence structure.
+
+###Removal of Junk Characters
+The removal of junk characters is important as these are characters usually introduced by changing formats of the way the data is stored. For example, a space in a URL is represented as "%20", which can lead to the sentence "Welcome%20to%my%20blog" if not read in the correct format. 
+
+###Removal of Punctuation and Numbers
+Similarly to above, we also want to remove punctuation and numbers from the corpus as these should not form part of our final data set.
+
+##Tokenization and Creation of ngrams
+In Natural Language Processing (NLP), the idea of tokens and ngrams are very important. Tokens are simply a "chopped up" piece of data that we can use for anaylsis. For example, a paragraph in a blog can be tokenised into multiple sentences and then tokenised again into individual words. Ngrams are a way of representing the tokens by analysing what surrounds them. For example, a sentence can be broken into ngrams, showing a word and the word that comes before and after it. For obvious reasons, this is very important to us in this project.
+
+We are going to use the Quanteda R Package here to help with the task of getting ngrams of various lengths here. This will help us in understanding the most popular words and phrases in the data, which in turn will be used in the next phase of this project:
+
+1. Combine the three corpora into a single one.
+2. Using Quanteda, remove profanity, punctuation and other undesirable data.
+3. Using Quanteda, break the data set into individual sentences and then words to find 1-ngrams, 2-ngrams, 3-ngrams and 4-ngrams which can be used.
+4. Perform Exploratory Data Analysis to highlight any interesting data that may be found.
+
+```{r create_full, echo = FALSE, error = TRUE, warning = FALSE, message = FALSE, tidy = TRUE, cache = TRUE}
+##https://rpubs.com/erodriguez/nlpquanteda
+library(quanteda)
+corpus = c(blogs, news, twitter)
+rm(blogs, news, twitter)
+sentences = tokenize(corpus, what = "sentence", removeNumbers = TRUE, removePunct = TRUE, removeSymbols = TRUE, removeSeparators = TRUE, removeTwitter = TRUE, removeHyphens = TRUE)
+rm(corpus)
+sentences = toLower(sentences)
+##TODO Remove Profanity
+sentences = unlist(sentences)
+
+makeTokens <- function(input, n = 1L)
+{
+  tokenize(input, what = "word", removeNumbers = TRUE, removePunct = TRUE, removeSymbols = TRUE, removeSeparators = TRUE, removeTwitter = TRUE, removeHyphens = TRUE, ngrams = n, simplify = TRUE)  
+}
+
+ngram1 = paralleliseTasks(makeTokens, sentences, 1)
+ngram2 = paralleliseTasks(makeTokens, sentences, 2)
+ngram3 = paralleliseTasks(makeTokens, sentences, 3)
+ngram4 = paralleliseTasks(makeTokens, sentences, 4)
+rm(sentences)
+
+dfm1 = paralleliseTasks(dfm, ngram1)
+dfm2 = paralleliseTasks(dfm, ngram2)
+dfm3 = paralleliseTasks(dfm, ngram3)
+dfm4 = paralleliseTasks(dfm, ngram4)
+
+library(data.table)
+dt1 = data.table(ngram = features(dfm1), count = colSums(dfm1), key = "ngram")
+dt2 = data.table(ngram = features(dfm2), count = colSums(dfm2), key = "ngram")
+dt3 = data.table(ngram = features(dfm3), count = colSums(dfm3), key = "ngram")
+dt4 = data.table(ngram = features(dfm4), count = colSums(dfm4), key = "ngram")
+rm(ngram1, ngram2, ngram3, ngram4, dfm1, dfm2, dfm3, dfm4)
+
+##sort largest to smallest
+dt1 = dt1[order(-count)]
+dt2 = dt2[order(-count)]
+dt3 = dt3[order(-count)]
+dt4 = dt4[order(-count)]
+```
+
+##Exploratory Data Analysis
+A very easy to understand method of plotting the ngrams here is to simply plot a histogram showing the top 20 ngrams by length against the number of times they appear in the corpus.
+
+###The 1-word Ngram
+The 1-word ngram is unique in that it simply shows us the most common words in the dataset at this point. It is not known whether this will be useful for the final model, but it is interesting to look at.
+```{r hist_1ngram, echo = FALSE, error = TRUE, warning = FALSE, message = FALSE, tidy = TRUE, cache = TRUE}
+library(ggplot2)
+ggplot(dt1[1:20], aes(x = ngram, y = count)) + geom_bar(stat = "Identity", fill = "blue") + theme(axis.text.x = element_text(angle = 45, hjust = 1)) + ylab("Frequency") + ggtitle("Top 20 1-word Ngrams") + scale_x_discrete(limits = dt1[1:20]$ngram)
+```
+
+###The 2-word Ngram
+The 2-word ngram gives us our first look at basic phrases that appear in the corpus. This starts to let us see how words are used.
+```{r hist_2ngram, echo = FALSE, error = TRUE, warning = FALSE, message = FALSE, tidy = TRUE, cache = TRUE}
+ggplot(dt2[1:20], aes(x = ngram, y = count)) + geom_bar(stat = "Identity", fill = "green") + theme(axis.text.x = element_text(angle = 45, hjust = 1)) + ylab("Frequency") + ggtitle("Top 20 2-word Ngrams") + scale_x_discrete(limits = dt2[1:20]$ngram)
+```
+
+###The 3-word Ngram
+The 3-word ngram gives us an even better look at phrases in the corpus. Using this, we can start looking at a 2-word ngram and predicting the possibility that the 3rd word is a word in the 3-word ngrams.
+```{r hist_3ngram, echo = FALSE, error = TRUE, warning = FALSE, message = FALSE, tidy = TRUE, cache = TRUE}
+ggplot(dt3[1:20], aes(x = ngram, y = count)) + geom_bar(stat = "Identity", fill = "red") + theme(axis.text.x = element_text(angle = 45, hjust = 1)) + ylab("Frequency") + ggtitle("Top 20 3-word Ngrams") + scale_x_discrete(limits = dt3[1:20]$ngram)
+```
+
+###The 4-word Ngram
+Finally, we come to the 4-word ngram. This is potentially the most useful of all in that we can now examine a phrase in terms of both its 2-word and 3-word ngram to find the most probable 4th word in the sequence.
+```{r hist_4ngram, echo = FALSE, error = TRUE, warning = FALSE, message = FALSE, tidy = TRUE, cache = TRUE}
+ggplot(dt4[1:20], aes(x = ngram, y = count)) + geom_bar(stat = "Identity", fill = "yellow") + theme(axis.text.x = element_text(angle = 45, hjust = 1)) + ylab("Frequency") + ggtitle("Top 20 4-word Ngrams") + scale_x_discrete(limits = dt4[1:20]$ngram)
+```
+
+###Word Coverage
+The large size of the corpus involved here means that we need to consider the word coverage of the model in order to keep it small enough to run quickly and efficiently while doing predictions. We want to eliminate ngrams that appear the least in the corpus. The best solution is to simply eliminate a certain percentage of the least most common ngrams. This is especially important as our ngrams get longer.
+
+```{r word_coverage, echo = FALSE, error = TRUE, warning = FALSE, message = FALSE, tidy = TRUE, cache = TRUE}
+library(scales)
+dt1$wordcount = 1:nrow(dt1)
+dt1$percentcovered = round(cumsum(dt1$count)/sum(dt1$count)*100, 2)
+ggplot(dt1, aes(x = percentcovered, y = wordcount)) + geom_line() + xlab("Percentage of Corpus Covered") + ylab("Numbers of ngrams required") + ggtitle("Ngram Coverage by Percentage of Corpus") + scale_y_continuous(labels = comma)
+
+dt2$wordcount = 1:nrow(dt2)
+dt2$percentcovered = round(cumsum(dt2$count)/sum(dt2$count)*100, 2)
+ggplot(dt2, aes(x = percentcovered, y = wordcount)) + geom_line() + xlab("Percentage of Corpus Covered") + ylab("Numbers of ngrams required") + ggtitle("Ngram Coverage by Percentage of Corpus - 2-word Ngrams") + scale_y_continuous(labels = comma)
+
+dt3$wordcount = 1:nrow(dt3)
+dt3$percentcovered = round(cumsum(dt3$count)/sum(dt3$count)*100, 2)
+ggplot(dt3, aes(x = percentcovered, y = wordcount)) + geom_line() + xlab("Percentage of Corpus Covered") + ylab("Numbers of ngrams required") + ggtitle("Ngram Coverage by Percentage of Corpus - 3-word Ngrams") + scale_y_continuous(labels = comma)
+
+dt4$wordcount = 1:nrow(dt4)
+dt4$percentcovered = round(cumsum(dt4$count)/sum(dt4$count)*100, 2)
+ggplot(dt4, aes(x = percentcovered, y = wordcount)) + geom_line() + xlab("Percentage of Corpus Covered") + ylab("Numbers of ngrams required") + ggtitle("Ngram Coverage by Percentage of Corpus - 4-word Ngrams") + scale_y_continuous(labels = comma)
+```
+
+These graphs clearly show that as we work with the 3- and 4-word ngrams, we are going to need to use at least half of the total ngrams in order to get even a basic 50% coverage. This obviously has serious implications for memory usage in the model, but this will have to be fully addressed later in the project.
+
+##Basic Modelling
+```{r basic_modelling, echo = FALSE, error = TRUE, warning = FALSE, message = FALSE, tidy = TRUE, cache = TRUE}
+phrase = dt3[1]$ngram
+temp <- head(dt4[grep(paste("^", phrase, "_?", sep = ""), dt4$ngram)], 10)
+```
+Now that we have our ngrams, let's take a look at the most basic model, a prediction of the 4th word in the most common 3-word ngram. From our current work, we can see that the most common 3-word ngram is "`r gsub("_", " ", phrase)`". We can now find the top 10 most common 4-word ngrams that start with this phrase:
+```{r basic_modelling_display, echo = FALSE, error = TRUE, warning = FALSE, message = FALSE, tidy = TRUE, cache = TRUE}
+temp[, .(ngram, count)]
+```
+We can now start seeing how we can use ngrams to build up phrases that might be used, which is exactly what we need to do.
+
+
+##Next Steps
+There are multiple steps that still need to be taken to clean this corpus and make it more suitable for the prediction model we want to build:
+
+1. Remove words and phrases that are not common enough to be predicted. This will save both memory space and processing power in our final model.
+2. Correct for poor spelling. Some of the exploratory data analysis done here showed that poor spelling, especially (and predictably) in the Twitter dataset, can lead to invalid or unhelpful ngrams.
+3. Develop the predictive model. I am still undecided on the size of the training data versus the testing data. In theory, we should be able to use a very small subset of the data in testing, especially if we use something like the blogs data set in testing due to the fact that blogs will typically use full, correct sentences. 
+4. Construction and deployment of the Shiny app that will allow the model to be used.

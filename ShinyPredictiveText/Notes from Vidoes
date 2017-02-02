@@ -1,0 +1,14 @@
+Notes from Videos
+
+^ - represents start of a line ("^i")
+$ - end of line ("morning$")
+[] - character sets ([Rr][Oo][Rr][Yy], finds RORY, Rory, rory, etc)
+^[Rr][Oo] finds lines starting with Ro or ro or RO
+[0-9] find all numbers
+[a-z] find all lower case letters
+[^] - acts as NOT ([^Rory] finds like that don't have Rory)
+. - wild card ([R.M] finds RJM or R#M, not RM)
+| OR operater (rory|Rory), good for synonyms
+() will constraint the search terms
+? indicates optional characters ([Rr][Jj]?[Mm])
+

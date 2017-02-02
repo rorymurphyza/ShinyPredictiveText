@@ -1,0 +1,125 @@
+---
+title: "Exploratory Data Analysis for the Data Science Capstone"
+author: "Rory Murphy"
+date: "June 11, 2016"
+output: html_document
+---
+
+The Data Science Capstone project is the culmination of the work that has been learned during the Data Science course from Johns Hopkins University.
+
+##Synopsis
+
+With the meteoric rise of mobile devices, so has their usage as primary communication tools increased. This means that people are using the on-board keyboards almost constantly. In order to make as efficent as possible, multiple prediction and "autocorrect" algorithms have been used in order to try and suggest words to users. During this Capstone projecy, it is up to us to create our own implementation of a prediction service that will suggest the most likely word to the user.
+
+Using the given corpus of data that can be downloaded from the course website, a prediction algorithm is to be created. The first step in this algorithm is to tidy and prepare the data for use. Subsequently, exploratory data analysis is to  be done, which will be fully documented in this  file.
+
+##Dataset
+
+Once the data has been downloaded from the appropriate host, the following can be executed in order to prepare the corpus for use.
+
+```{r read_files, echo = TRUE,  error = TRUE, warning = FALSE, message = FALSE, tidy = TRUE, cache = TRUE}
+library(tm)
+corpus = VCorpus(DirSource(directory = "Data/final/en_US/",  encoding = "UTF-8"), readerControl = list(language = "en"))
+```
+
+##Exploratory Analysis
+
+###Dataset Characteristics
+
+We can first have a look at some statistics for the data sets in order to try understand their size and characteristics.
+
+```{r statistics_table, echo = FALSE, error = TRUE, warning = FALSE, message = FALSE, tidy = TRUE, cache = TRUE}
+library(stringi)
+statsTable = data.frame(FileName = character(), NumOfLines = numeric(), NumOfWords = numeric(), NumOfWordsUnique = numeric())
+temp = as.character(corpus[[1]])
+words = stri_flatten(temp, collapse = " ")
+words = unlist(stri_extract_all_words(words, locale = "en"))
+statsTable = rbind(statsTable, data.frame(FileName = "en_US.blogs.txt", NumOfLines = length(temp), NumOfWords = length(words), NumOfWordsUnique = length(unique(words))))
+
+temp = as.character(corpus[[2]])
+words = stri_flatten(temp, collapse = " ")
+words = unlist(stri_extract_all_words(words, locale = "en"))
+statsTable = rbind(statsTable, data.frame(FileName = "en_US.news.txt", NumOfLines = length(temp), NumOfWords = length(words), NumOfWordsUnique = length(unique(words))))
+
+temp = as.character(corpus[[3]])
+words = stri_flatten(temp, collapse = " ")
+words = unlist(stri_extract_all_words(words, locale = "en"))
+statsTable = rbind(statsTable, data.frame(FileName = "en_US.twitter.txt", NumOfLines = length(temp), NumOfWords = length(words), NumOfWordsUnique = length(unique(words))))
+rm(temp, words); statsTable
+```
+
+As can be seen from the table here, there are not very comparable numbers of words and unique words in each corpus. Before we continue with the Data Cleaning section, it is a good idea to sample these datasets in order to reduce the computing complexity.
+
+```{r create_full, echo = TRUE, error = TRUE, warning = FALSE, message = FALSE, tidy = TRUE, cache = TRUE}
+set.seed(5421)
+sample = corpus
+sample[[1]]$content = sample(corpus[[1]]$content, length(corpus[[1]]$content) * 0.05)
+sample[[2]]$content = sample(corpus[[2]]$content, length(corpus[[2]]$content) * 0.05)
+sample[[3]]$content = sample(corpus[[3]]$content, length(corpus[[3]]$content) * 0.05)
+```
+
+###Data Cleaning
+
+As with almost all datasets, some cleaning of the data is required to ensure that it is in a useable format for the prediction algorithm. For this data, cleaning will consist of the following:
+
+1. Remove garbage characters
+2. Convert all letters to lowercase
+3. Remove punctuation, numbers and other whitespace
+4. Remove profanity
+
+```{r remove_garbage, echo = TRUE, error = FALSE, warning = FALSE, message = FALSE, tidy = TRUE, cache = TRUE}
+## remove garbage characters
+sample[[1]] = gsub("<..>", "", iconv(sample[[1]], to = "ASCII", sub = "byte"))
+sample[[2]] = gsub("<..>", "", iconv(sample[[2]], to = "ASCII", sub = "byte"))
+sample[[3]] = gsub("<..>", "", iconv(sample[[3]], to = "ASCII", sub = "byte"))
+
+sentences = unlist(strsplit(sample[[1]][[1]], "[.?!]"))
+nonsentences = which(nzchar(sentences) == TRUE)
+sample[[1]][[1]] = sentences[nonsentences]
+sentences = unlist(strsplit(sample[[2]][[1]], "[.?!]"))
+nonsentences = which(nzchar(sentences) == TRUE)
+sample[[2]][[1]] = sentences[nonsentences]
+sentences = unlist(strsplit(sample[[3]][[1]], "[.?!]"))
+nonsentences = which(nzchar(sentences) == TRUE)
+sample[[3]][[1]] = sentences[nonsentences]
+```
+
+```{r convert_to_lower, echo = TRUE, error = FALSE, warning = FALSE, message = FALSE, tidy = TRUE, cache = TRUE}
+## convert to lower
+##sample = tm_map(sample, content_transformer(tolower))
+```
+
+```{r remove_characters, echo = TRUE, error = TRUE, warning = FALSE, message = FALSE, tidy = TRUE, cache = TRUE}
+## remove characters
+sample = tm_map(sample, removePunctuation)
+sample = tm_map(sample, removeNumbers)
+sample = tm_map(sample, removeWords, stopwords(kind = "en"))
+sample = tm_map(sample, stripWhitespace)
+```
+
+The website http://www.bannedwordlist.com hosts an open source list of banned words in the English language. This can be downloaded directly from the website and used easily as a filter
+
+```{r remove_profanity, echo = TRUE, error = TRUE, warning = FALSE, message = FALSE, tidy = TRUE, cache = TRUE}
+url = "http://www.bannedwordlist.com/lists/swearWords.csv"
+swears = download.file(url, destfile = "swears.csv")
+swears = read.csv("swears.csv", header = FALSE, sep = ",")
+sample = tm_map(sample, removeWords, swears)
+rm(url, swears)
+```
+
+###Creating Term Document Matrix
+
+The Term Document Matrix allows for easy processing of the corpus.
+
+```{r create_tdm, echo = TRUE, error = TRUE, warning = FALSE, message = FALSE, tidy = TRUE, cache = TRUE}
+sample = tm_map(sample, TextDocument)
+blogstdm = TermDocumentMatrix(sample[[1]])
+```
+
+###Tokens
+
+One of the most important parts of the prediction model in this case is to look at the n-gram analysis. This will allow for a way to see how sentences are structured and which words typically appear next to each other.
+
+```{r one_word_tokens, echo = TRUE, error = TRUE, warning = FALSE, message = FALSE, tidy = TRUE, cache = TRUE}
+
+```

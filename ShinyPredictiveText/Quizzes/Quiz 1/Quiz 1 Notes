@@ -1,0 +1,13 @@
+Quiz 1 Notes
+
+use max(nchar(twitter)) to find the highest number of characaters in a single line in twitter
+
+length(grep("love", twitter)) will find the number of occurences of "love" in twitter
+
+Answers:
+1 -> 200
+2 -> over 2 million
+3 -> over 40 thousand in the blogs data set
+4 -> 4
+5 -> "i know how you feel... i have biostats on tuesday and i have yet to study" - they haven't studied for their biostats exam
+6 -> 3
